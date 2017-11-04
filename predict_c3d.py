@@ -56,7 +56,9 @@ def run_test():
             'wc5b': _variable_with_weight_decay('wc5b', [3, 3, 3, 512, 512], wd=0.0005),
             'wd1': _variable_with_weight_decay('wd1', [8192, 4096], wd=0.0005),
             'wd2': _variable_with_weight_decay('wd2', [4096, 4096], wd=0.0005),
-            'out': _variable_with_weight_decay('wout', [4096, NUM_CLASSES], wd=0.0005)
+            # 'out': _variable_with_weight_decay('wout', [4096, c3d_model.NUM_CLASSES], wd=0.0005),
+            'in': _variable_with_weight_decay('in', [4096, c3d_model.NUM_HIDDEN_UNIT], wd=0.0005),
+            'out': _variable_with_weight_decay('out', [c3d_model.NUM_HIDDEN_UNIT, c3d_model.NUM_CLASSES], wd=0.0005)
         }
         biases = {
             'bc1': _variable_with_weight_decay('bc1', [64], 0.000),
@@ -69,10 +71,13 @@ def run_test():
             'bc5b': _variable_with_weight_decay('bc5b', [512], 0.000),
             'bd1': _variable_with_weight_decay('bd1', [4096], 0.000),
             'bd2': _variable_with_weight_decay('bd2', [4096], 0.000),
-            'out': _variable_with_weight_decay('bout', [NUM_CLASSES], 0.000),
+            # 'out': _variable_with_weight_decay('bout', [c3d_model.NUM_CLASSES], 0.000),
+            'in': _variable_with_weight_decay('in', [c3d_model.NUM_HIDDEN_UNIT], 0.000),
+            'out': _variable_with_weight_decay('out', [c3d_model.NUM_CLASSES], 0.000)
         }
 
-    _, _, logit = c3d_model.inference_c3d(images_placeholder, 1.0, BATCH_SIZE, weights, biases)
+    dense1 = c3d_model.inference_c3d(images_placeholder, 1.0, BATCH_SIZE, weights, biases)
+    logit = c3d_model.RNN(dense1, batch_size=BATCH_SIZE, weights=weights, biases=biases)
     prediction = tf.nn.softmax(logit)
     accuracy = tower_acc(prediction, labels_placeholder)
 

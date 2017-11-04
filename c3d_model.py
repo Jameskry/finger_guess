@@ -23,11 +23,16 @@ forward to make predictions.
 import tensorflow as tf
 
 NUM_CLASSES = 3
+NUM_HIDDEN_UNIT = 128
+
 
 # Images are cropped to (CROP_SIZE, CROP_SIZE)
 CROP_SIZE = 112
 CHANNELS = 3
-
+# 160 frames per video
+# Video split into (16 frames * 20 clips)
+# Each frames has 8 frames overlapping
+NUM_STEPS = 20
 # Number of frames per video clip
 NUM_FRAMES_PER_CLIP = 16
 
@@ -87,6 +92,25 @@ def inference_c3d(_X, _dropout, batch_size, _weights, _biases):
   dense2 = tf.nn.dropout(dense2, _dropout)
 
   # Output: class prediction
-  out = tf.matmul(dense2, _weights['out']) + _biases['out']
+  # out = tf.matmul(dense2, _weights['out']) + _biases['out']
 
-  return pool1, conv1, out
+  return dense1
+
+def RNN(X, batch_size, weights, biases):
+    # X ==> ( batches * steps, 4096 inputs)
+    X = tf.reshape(X, [-1, 4096])
+
+    # X_in = W*X + b
+    X_in = tf.matmul(X, weights['in']) + biases['in']
+    # X_in ==> (batches, steps, 128 hidden) 换回3维
+    X_in = tf.reshape(X_in, [-1, NUM_STEPS, NUM_HIDDEN_UNIT])
+    # 使用 basic LSTM Cell.
+    lstm_cell = tf.contrib.rnn.BasicLSTMCell(NUM_HIDDEN_UNIT, forget_bias=1.0, state_is_tuple=True)
+    init_state = lstm_cell.zero_state(batch_size, dtype=tf.float32)  # 初始化全零 state
+    outputs, final_state = tf.nn.dynamic_rnn(lstm_cell, X_in, initial_state=init_state, time_major=False)
+
+    # results = tf.matmul(final_state[1], weights['out']) + biases['out']
+    # 把 outputs 变成 列表 [(batch, outputs)..] * steps
+    outputs = tf.unstack(tf.transpose(outputs, [1, 0, 2]))
+    results = tf.matmul(outputs[-1], weights['out']) + biases['out']  # 选取最后一个 output
+    return results
